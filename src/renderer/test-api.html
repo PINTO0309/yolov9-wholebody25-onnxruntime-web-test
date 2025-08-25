@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Electron API</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #0f0;
+        }
+        pre {
+            background: #000;
+            padding: 10px;
+            border: 1px solid #0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Electron API Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        // Test window.electronAPI
+        const info = {
+            'window.electronAPI exists': typeof window.electronAPI !== 'undefined',
+            'window.electronAPI': window.electronAPI,
+            'window.electronAPI.getSources exists': window.electronAPI && typeof window.electronAPI.getSources === 'function',
+            'navigator.mediaDevices': typeof navigator.mediaDevices !== 'undefined',
+            'navigator.mediaDevices.getUserMedia': typeof navigator.mediaDevices?.getUserMedia === 'function',
+            'navigator.mediaDevices.getDisplayMedia': typeof navigator.mediaDevices?.getDisplayMedia === 'function',
+        };
+        
+        output.innerHTML = '<pre>' + JSON.stringify(info, null, 2) + '</pre>';
+        
+        // Try to get sources if available
+        if (window.electronAPI && window.electronAPI.getSources) {
+            window.electronAPI.getSources().then(sources => {
+                output.innerHTML += '<h2>Available Sources:</h2>';
+                output.innerHTML += '<pre>' + JSON.stringify(sources.map(s => ({id: s.id, name: s.name})), null, 2) + '</pre>';
+            }).catch(err => {
+                output.innerHTML += '<h2>Error getting sources:</h2>';
+                output.innerHTML += '<pre style="color: red">' + err.toString() + '</pre>';
+            });
+        }
+    </script>
+</body>
+</html>

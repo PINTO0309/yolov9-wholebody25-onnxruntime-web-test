@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebGPU Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #2ecc71; }
+        .error { background: #e74c3c; }
+        .warning { background: #f39c12; }
+        .info { background: #3498db; }
+        pre {
+            background: #2c2c2c;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebGPU Support Test</h1>
+    <div id="results"></div>
+
+    <script>
+        async function testWebGPU() {
+            const results = document.getElementById('results');
+            
+            // Check if WebGPU API exists
+            const apiCheck = document.createElement('div');
+            apiCheck.className = 'status ' + (navigator.gpu ? 'success' : 'error');
+            apiCheck.innerHTML = `<strong>WebGPU API:</strong> ${navigator.gpu ? '✅ Available' : '❌ Not Available'}`;
+            results.appendChild(apiCheck);
+
+            if (!navigator.gpu) {
+                const userAgent = document.createElement('div');
+                userAgent.className = 'status info';
+                userAgent.innerHTML = `<strong>User Agent:</strong><pre>${navigator.userAgent}</pre>`;
+                results.appendChild(userAgent);
+                return;
+            }
+
+            try {
+                // Request adapter
+                const adapterStatus = document.createElement('div');
+                adapterStatus.className = 'status info';
+                adapterStatus.innerHTML = '<strong>Requesting adapter...</strong>';
+                results.appendChild(adapterStatus);
+
+                const adapter = await navigator.gpu.requestAdapter({
+                    powerPreference: 'high-performance',
+                    forceFallbackAdapter: false
+                });
+
+                if (!adapter) {
+                    adapterStatus.className = 'status error';
+                    adapterStatus.innerHTML = '<strong>Adapter:</strong> ❌ No adapter found';
+                    return;
+                }
+
+                adapterStatus.className = 'status success';
+                adapterStatus.innerHTML = '<strong>Adapter:</strong> ✅ Found';
+
+                // Get adapter info
+                const info = await adapter.requestAdapterInfo();
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'status info';
+                infoDiv.innerHTML = `<strong>Adapter Info:</strong><pre>${JSON.stringify(info, null, 2)}</pre>`;
+                results.appendChild(infoDiv);
+
+                // Request device
+                const deviceStatus = document.createElement('div');
+                deviceStatus.className = 'status info';
+                deviceStatus.innerHTML = '<strong>Requesting device...</strong>';
+                results.appendChild(deviceStatus);
+
+                const device = await adapter.requestDevice();
+
+                if (!device) {
+                    deviceStatus.className = 'status error';
+                    deviceStatus.innerHTML = '<strong>Device:</strong> ❌ Failed to get device';
+                    return;
+                }
+
+                deviceStatus.className = 'status success';
+                deviceStatus.innerHTML = '<strong>Device:</strong> ✅ Created successfully';
+
+                // Show features
+                const features = Array.from(device.features);
+                const featuresDiv = document.createElement('div');
+                featuresDiv.className = 'status info';
+                featuresDiv.innerHTML = `<strong>Device Features:</strong><pre>${JSON.stringify(features, null, 2)}</pre>`;
+                results.appendChild(featuresDiv);
+
+                // Show limits (partial)
+                const limits = {
+                    maxTextureDimension2D: device.limits.maxTextureDimension2D,
+                    maxBufferSize: device.limits.maxBufferSize,
+                    maxBindGroups: device.limits.maxBindGroups,
+                    maxComputeWorkgroupSizeX: device.limits.maxComputeWorkgroupSizeX
+                };
+                const limitsDiv = document.createElement('div');
+                limitsDiv.className = 'status info';
+                limitsDiv.innerHTML = `<strong>Device Limits (partial):</strong><pre>${JSON.stringify(limits, null, 2)}</pre>`;
+                results.appendChild(limitsDiv);
+
+                // Clean up
+                device.destroy();
+
+                // Final status
+                const finalStatus = document.createElement('div');
+                finalStatus.className = 'status success';
+                finalStatus.innerHTML = '<h2>✅ WebGPU is fully functional!</h2>';
+                results.appendChild(finalStatus);
+
+            } catch (error) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'status error';
+                errorDiv.innerHTML = `<strong>Error:</strong><pre>${error.toString()}\n${error.stack}</pre>`;
+                results.appendChild(errorDiv);
+            }
+        }
+
+        // Run test on load
+        testWebGPU();
+    </script>
+</body>
+</html>

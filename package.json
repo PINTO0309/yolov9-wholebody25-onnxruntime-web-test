@@ -1,0 +1,30 @@
+{
+  "name": "yolov9-wholebody25-onnxruntime-web-test",
+  "version": "1.0.0",
+  "description": "YOLOv9 Wholebody25 Object Detection with ONNX Runtime Web",
+  "main": "dist-electron/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.4"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "onnxruntime-web": "^1.20.0"
+  }
+}
