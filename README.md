@@ -199,9 +199,9 @@ For optimal performance:
 
 ## 📊 Performance Benchmarks
 
-Typical inference times on NVIDIA RTX 3060:
+Typical inference times on NVIDIA RTX 3070:
 - **WebGPU**: ~15-25ms per frame (40-65 FPS)
-- **WebGL**: ~30-50ms per frame (20-33 FPS)
+- **WebGL**: ~250ms per frame (4-10 FPS)
 
 *Performance varies based on hardware and system load*
 
