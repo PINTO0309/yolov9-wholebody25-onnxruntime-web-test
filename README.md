@@ -2,7 +2,7 @@
 
 A high-performance real-time object detection application built with Electron, React, TypeScript, and ONNX Runtime Web. This application performs wholebody detection using YOLOv9 model with support for both WebGPU and WebGL execution providers.
 
-https://github.com/user-attachments/assets/2cb3383c-f471-4882-9551-394ced80274e
+https://github.com/user-attachments/assets/a5dd105d-f092-40ca-947d-c2de0e7043ed
 
 ## 🌟 Features
 
