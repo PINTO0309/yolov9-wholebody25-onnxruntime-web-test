@@ -263,20 +263,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 🙏 Acknowledgments
-
-- YOLOv9 model architecture and weights
-- ONNX Runtime Web team for the inference engine
-- Electron team for the desktop framework
-- React and TypeScript communities
-
-## 📞 Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Check existing issues for solutions
-- Provide detailed error messages and system information
-
 ---
 
 **Note**: This application is for educational and research purposes. Ensure compliance with applicable privacy laws when using webcam and screen recording features.
