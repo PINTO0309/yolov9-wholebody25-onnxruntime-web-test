@@ -25,18 +25,34 @@ https://github.com/user-attachments/assets/a5dd105d-f092-40ca-947d-c2de0e7043ed
 
 ## 🚀 Installation
 
-1. Clone the repository:
+1. Install pnpm (if not already installed):
+```bash
+# Using npm
+npm install -g pnpm
+
+# Or using Corepack (recommended for Node.js 16.13+)
+corepack enable
+corepack prepare pnpm@latest --activate
+
+# Or using Homebrew (macOS)
+brew install pnpm
+
+# Or using standalone script
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+```
+
+2. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/yolov9-wholebody25-onnxruntime-web-test.git
 cd yolov9-wholebody25-onnxruntime-web-test
 ```
 
-2. Install dependencies using pnpm:
+3. Install dependencies using pnpm:
 ```bash
 pnpm install
 ```
 
-3. Ensure the YOLOv9 model is in place:
+4. Ensure the YOLOv9 model is in place:
 ```
 public/models/yolov9_s_wholebody25_0100_1x3x640x640.onnx
 ```
