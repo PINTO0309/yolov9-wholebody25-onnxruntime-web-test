@@ -237,6 +237,8 @@ pnpm run dist:linux # Linux
 
 ## 📝 License
 
+### Application Code
+
 Copyright 2025 Katsuya Hyodo
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -252,6 +254,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 See the [LICENSE](LICENSE) file for the full license text.
+
+### YOLOv9 ONNX Model
+
+The YOLOv9 ONNX model file (`yolov9_s_wholebody25_0100_1x3x640x640.onnx`) is licensed under the **GNU General Public License v3.0 (GPLv3)**.
+
+When using this model, you must comply with the GPLv3 license terms, which include:
+- Making source code available when distributing the model
+- Preserving copyright and license notices
+- Distributing any modifications under the same GPLv3 license
+
+For more information about GPLv3, see: https://www.gnu.org/licenses/gpl-3.0.html
 
 ## 🤝 Contributing
 
