@@ -4,6 +4,8 @@ A high-performance real-time object detection application built with Electron, R
 
 https://github.com/user-attachments/assets/a5dd105d-f092-40ca-947d-c2de0e7043ed
 
+https://github.com/user-attachments/assets/9207364f-3076-44fe-877e-788a07ad0050
+
 ## 🌟 Features
 
 - **Real-time Object Detection**: YOLOv9 wholebody detection with 25 classes
