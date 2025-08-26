@@ -6,13 +6,15 @@ interface DetectionCanvasProps {
   height: number
   detections: BoundingBox[]
   videoRef: React.RefObject<HTMLVideoElement>
+  segmentationMask?: Uint8Array | null
 }
 
 const DetectionCanvas: React.FC<DetectionCanvasProps> = ({
   width,
   height,
   detections,
-  videoRef
+  videoRef,
+  segmentationMask
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -29,6 +31,23 @@ const DetectionCanvas: React.FC<DetectionCanvasProps> = ({
       
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         ctx.drawImage(video, 0, 0, width, height)
+        
+        if (segmentationMask && segmentationMask.length > 0) {
+          ctx.save()
+          ctx.globalAlpha = 0.3
+          ctx.fillStyle = 'rgb(0, 255, 0)'
+          
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+              const idx = y * width + x
+              if (segmentationMask[idx] > 0) {
+                ctx.fillRect(x, y, 1, 1)
+              }
+            }
+          }
+          
+          ctx.restore()
+        }
         
         detections.forEach((detection) => {
           const { x1, y1, x2, y2, confidence, label } = detection
@@ -54,7 +73,7 @@ const DetectionCanvas: React.FC<DetectionCanvasProps> = ({
     }
 
     draw()
-  }, [detections, width, height, videoRef])
+  }, [detections, width, height, videoRef, segmentationMask])
 
   return (
     <canvas

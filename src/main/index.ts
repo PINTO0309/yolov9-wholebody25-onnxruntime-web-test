@@ -35,7 +35,7 @@ function createWindow(): void {
   console.log('Preload script path:', preloadPath)
   console.log('Preload script exists:', require('fs').existsSync(preloadPath))
   console.log('__dirname:', __dirname)
-  
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -62,7 +62,7 @@ function createWindow(): void {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
-  
+
   // Add logging for when the page is loaded
   mainWindow.webContents.on('did-finish-load', () => {
     console.log('Page finished loading')
@@ -103,7 +103,7 @@ app.whenReady().then(() => {
   })
 
   // Handle IPC for DevTools toggle
-  ipcMain.handle('toggle-devtools', async (event, enable: boolean) => {
+  ipcMain.handle('toggle-devtools', async (_event, enable: boolean) => {
     if (mainWindow) {
       if (enable) {
         mainWindow.webContents.openDevTools()

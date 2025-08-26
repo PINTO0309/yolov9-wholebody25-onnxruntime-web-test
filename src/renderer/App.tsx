@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { YOLOv9Detector } from './utils/yolov9'
+import { PersonSegmentation, SegmentationConfig } from './utils/segmentation'
 import { BoundingBox, ExecutionProvider, ModelConfig } from './utils/types'
 import { useWebcam } from './hooks/useWebcam'
 import { useScreenRecorder } from './hooks/useScreenRecorder'
@@ -12,17 +13,20 @@ function App() {
   const [isModelLoading, setIsModelLoading] = useState(false)
   const [isModelLoaded, setIsModelLoaded] = useState(false)
   const [detections, setDetections] = useState<BoundingBox[]>([])
+  const [segmentationMask, setSegmentationMask] = useState<Uint8Array | null>(null)
   const [inferenceTime, setInferenceTime] = useState(0)
+  const [segmentationTime, setSegmentationTime] = useState(0)
   const [isDetecting, setIsDetecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [initializationStatus, setInitializationStatus] = useState<string>('')
   const [webGPUSupported, setWebGPUSupported] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
-  
+
   const detectorRef = useRef<YOLOv9Detector | null>(null)
+  const segmentationRef = useRef<PersonSegmentation | null>(null)
   const animationIdRef = useRef<number | null>(null)
   const offscreenCanvasRef = useRef<OffscreenCanvas | null>(null)
-  
+
   const { videoRef, isReady, error: webcamError } = useWebcam(640, 480)
   const { isRecording, error: recordError, toggleRecording } = useScreenRecorder()
 
@@ -35,8 +39,8 @@ function App() {
       setIsModelLoading(true)
       setError(null)
       setInitializationStatus('')
-      
-      // 既存のdetectorの破棄
+
+      // 既存のdetectorとsegmentationの破棄
       if (detectorRef.current) {
         try {
           await detectorRef.current.dispose()
@@ -46,7 +50,16 @@ function App() {
         }
       }
 
-      const config: ModelConfig = {
+      if (segmentationRef.current) {
+        try {
+          await segmentationRef.current.dispose()
+          segmentationRef.current = null
+        } catch (disposeError) {
+          console.warn('Error disposing previous segmentation:', disposeError)
+        }
+      }
+
+      const yoloConfig: ModelConfig = {
         modelPath: '/models/yolov9_s_wholebody25_0100_1x3x640x640.onnx',
         inputShape: [1, 3, 640, 640],
         confidenceThreshold: 0.5,
@@ -54,21 +67,33 @@ function App() {
         executionProvider
       }
 
-      const detector = new YOLOv9Detector(config, handleStatusUpdate)
+      const segmentationConfig: SegmentationConfig = {
+        modelPath: '/models/peopleseg_b0_0.8741_1x3x640x640.onnx',
+        inputShape: [1, 3, 640, 640],
+        threshold: 0.5,
+        executionProvider
+      }
+
+      const detector = new YOLOv9Detector(yoloConfig, handleStatusUpdate)
+      const segmentation = new PersonSegmentation(segmentationConfig, handleStatusUpdate)
+
       await detector.initialize()
-      
+      await segmentation.initialize()
+
       detectorRef.current = detector
+      segmentationRef.current = segmentation
       setIsModelLoaded(true)
-      
+
       if (!offscreenCanvasRef.current) {
         offscreenCanvasRef.current = new OffscreenCanvas(640, 480)
       }
     } catch (err: any) {
-      console.error('Failed to load model:', err)
+      console.error('Failed to load models:', err)
       const errorMessage = err?.message || String(err)
-      setError(`Failed to load model: ${errorMessage}`)
+      setError(`Failed to load models: ${errorMessage}`)
       setIsModelLoaded(false)
       detectorRef.current = null
+      segmentationRef.current = null
     } finally {
       setIsModelLoading(false)
     }
@@ -83,7 +108,7 @@ function App() {
         setExecutionProvider('webgl')
       }
     })
-    
+
     // Electron APIの確認（デバッグ用）
     console.log('=== Checking Electron API availability ===')
     console.log('window.electronAPI:', window.electronAPI)
@@ -115,43 +140,58 @@ function App() {
           console.warn('Error during cleanup dispose:', error)
         })
       }
+      if (segmentationRef.current) {
+        const segmentation = segmentationRef.current
+        segmentationRef.current = null
+        segmentation.dispose().catch(error => {
+          console.warn('Error during cleanup segmentation dispose:', error)
+        })
+      }
     }
   }, [isReady, initializeModel])
 
   const startDetection = useCallback(() => {
-    if (!isModelLoaded || !videoRef.current || !detectorRef.current) return
-    
+    if (!isModelLoaded || !videoRef.current || !detectorRef.current || !segmentationRef.current) return
+
     setIsDetecting(true)
-    
+
     const detect = async () => {
-      if (!videoRef.current || !detectorRef.current || !offscreenCanvasRef.current) return
-      
+      if (!videoRef.current || !detectorRef.current || !segmentationRef.current || !offscreenCanvasRef.current) return
+
       const video = videoRef.current
       const offscreenCanvas = offscreenCanvasRef.current
       const ctx = offscreenCanvas.getContext('2d')
-      
+
       if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
         animationIdRef.current = requestAnimationFrame(detect)
         return
       }
-      
+
       ctx.drawImage(video, 0, 0, 640, 480)
       const imageData = ctx.getImageData(0, 0, 640, 480)
-      
+
       try {
-        const startTime = performance.now()
+        // Run YOLO detection
+        const yoloStartTime = performance.now()
         const boxes = await detectorRef.current.detect(imageData)
-        const endTime = performance.now()
-        
-        setInferenceTime(endTime - startTime)
+        const yoloEndTime = performance.now()
+
+        // Run segmentation
+        const segStartTime = performance.now()
+        const mask = await segmentationRef.current.segment(imageData)
+        const segEndTime = performance.now()
+
+        setInferenceTime(yoloEndTime - yoloStartTime)
+        setSegmentationTime(segEndTime - segStartTime)
         setDetections(boxes)
+        setSegmentationMask(mask)
       } catch (err) {
-        console.error('Detection error:', err)
+        console.error('Detection/Segmentation error:', err)
       }
-      
+
       animationIdRef.current = requestAnimationFrame(detect)
     }
-    
+
     detect()
   }, [isModelLoaded, videoRef])
 
@@ -162,17 +202,18 @@ function App() {
       animationIdRef.current = null
     }
     setDetections([])
+    setSegmentationMask(null)
   }, [])
 
   const toggleProvider = useCallback(async () => {
     const newProvider = executionProvider === 'webgl' ? 'webgpu' : 'webgl'
-    
+
     // 検出を停止
     stopDetection()
-    
+
     // モデルをアンロード
     setIsModelLoaded(false)
-    
+
     // プロバイダーを切り替え（これによりuseEffectがトリガーされ、新しいモデルが初期化される）
     setExecutionProvider(newProvider)
   }, [executionProvider, stopDetection])
@@ -180,7 +221,7 @@ function App() {
   const toggleDebug = useCallback(async () => {
     const newDebugMode = !debugMode
     setDebugMode(newDebugMode)
-    
+
     // Toggle DevTools via Electron API
     if (window.electronAPI && window.electronAPI.toggleDevTools) {
       await window.electronAPI.toggleDevTools(newDebugMode)
@@ -202,10 +243,11 @@ function App() {
             height={480}
             detections={detections}
             videoRef={videoRef}
+            segmentationMask={segmentationMask}
           />
         )}
       </div>
-      
+
       <div className="controls">
         <button
           onClick={toggleProvider}
@@ -216,7 +258,7 @@ function App() {
           Switch to {executionProvider === 'webgl' ? 'WebGPU' : 'WebGL'}
           {!webGPUSupported && executionProvider === 'webgl' && ' (Not Supported)'}
         </button>
-        
+
         <button
           onClick={isDetecting ? stopDetection : startDetection}
           disabled={!isModelLoaded || isModelLoading}
@@ -224,7 +266,7 @@ function App() {
         >
           {isDetecting ? 'Stop Detection' : 'Start Detection'}
         </button>
-        
+
         <button
           onClick={toggleRecording}
           className={`btn ${isRecording ? 'btn-recording' : ''}`}
@@ -232,7 +274,7 @@ function App() {
         >
           {isRecording ? '⏹ Stop Recording' : '⏺ Record Screen'}
         </button>
-        
+
         <button
           onClick={toggleDebug}
           className={`btn ${debugMode ? 'btn-debug-active' : ''}`}
@@ -241,20 +283,24 @@ function App() {
           {debugMode ? '🐛 Debug ON' : '🐛 Debug OFF'}
         </button>
       </div>
-      
+
       <div className="info-panel">
         <div className="info-item">
           <span className="info-label">Runtime:</span>
           <span className="info-value">{executionProvider.toUpperCase()}</span>
         </div>
         <div className="info-item">
-          <span className="info-label">Inference:</span>
+          <span className="info-label">YOLO:</span>
           <span className="info-value">{inferenceTime.toFixed(2)} ms</span>
+        </div>
+        <div className="info-item">
+          <span className="info-label">Segmentation:</span>
+          <span className="info-value">{segmentationTime.toFixed(2)} ms</span>
         </div>
         <div className="info-item">
           <span className="info-label">FPS:</span>
           <span className="info-value">
-            {inferenceTime > 0 ? (1000 / inferenceTime).toFixed(1) : '0'}
+            {(inferenceTime + segmentationTime) > 0 ? (1000 / (inferenceTime + segmentationTime)).toFixed(1) : '0'}
           </span>
         </div>
         <div className="info-item">
@@ -262,26 +308,26 @@ function App() {
           <span className="info-value">{detections.length}</span>
         </div>
       </div>
-      
+
       {isModelLoading && (
         <div className="loading-overlay">
           <div className="loading-spinner"></div>
           <p>{initializationStatus || 'Loading model...'}</p>
         </div>
       )}
-      
+
       {initializationStatus && !isModelLoading && (
         <div className="status-message">
           {initializationStatus}
         </div>
       )}
-      
+
       {(error || webcamError || recordError) && (
         <div className="error-message">
           {error || webcamError || recordError}
         </div>
       )}
-      
+
       {isRecording && (
         <div className="recording-indicator">
           <span className="recording-dot"></span>
