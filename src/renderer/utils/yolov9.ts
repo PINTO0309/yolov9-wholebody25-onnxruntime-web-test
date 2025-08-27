@@ -1,6 +1,7 @@
 import * as ort from 'onnxruntime-web'
-import { BoundingBox, ExecutionProvider, ModelConfig } from './types'
+import { BoundingBox, ModelConfig } from './types'
 import { nonMaxSuppression } from './nms'
+import { selectGPUAdapterByIndex, getAllAvailableAdapters } from './webgpu-check'
 
 // ONNX Runtime Webの環境設定
 ort.env.wasm.wasmPaths = 'http://localhost:5173/'
@@ -21,9 +22,7 @@ export class YOLOv9Detector {
   private excludedClassIds: Set<number> = new Set([
     1, 2, 3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 22, 23
   ])
-  private initializationStatus: string = ''
   private onStatusUpdate?: (status: string) => void
-  private isWebGPU: boolean = false
 
   constructor(config: ModelConfig, onStatusUpdate?: (status: string) => void) {
     this.config = config
@@ -31,16 +30,32 @@ export class YOLOv9Detector {
   }
 
   private updateStatus(status: string) {
-    this.initializationStatus = status
     if (this.onStatusUpdate) {
       this.onStatusUpdate(status)
     }
     console.log('Status:', status)
   }
 
-  async initialize(): Promise<void> {
+  async initialize(gpuIndex?: number): Promise<void> {
     try {
       this.updateStatus('Initializing ONNX Runtime...')
+      
+      // WebGPU使用時はGPU選択を行う
+      if (this.config.executionProvider === 'webgpu') {
+        this.updateStatus('Selecting GPU adapter...')
+        const availableAdapters = await getAllAvailableAdapters()
+        console.log('Available GPU adapters:', availableAdapters.map(a => a.description))
+        
+        const selectedAdapter = await selectGPUAdapterByIndex(gpuIndex ?? 0)
+        if (selectedAdapter) {
+          const info = await selectedAdapter.requestAdapterInfo()
+          console.log('Selected GPU for YOLO:', info.description || 'Unknown GPU')
+          this.updateStatus(`Using GPU for YOLO: ${info.description || 'Unknown GPU'}`)
+        } else {
+          console.warn('No suitable GPU adapter found for YOLO, falling back to WebGL')
+          this.config.executionProvider = 'webgl'
+        }
+      }
       
       const options: ort.InferenceSession.SessionOptions = {
         executionProviders: this.config.executionProvider === 'webgpu' 
@@ -60,7 +75,6 @@ export class YOLOv9Detector {
       
       // WebGPU使用時の設定
       if (this.config.executionProvider === 'webgpu') {
-        this.isWebGPU = true
         console.log('WebGPU mode enabled')
       }
       
@@ -124,7 +138,7 @@ export class YOLOv9Detector {
   }
 
   private preprocessImage(imageData: ImageData): Float32Array {
-    const { width, height, data } = imageData
+    const { width, height } = imageData
     const [, channels, modelHeight, modelWidth] = this.config.inputShape
     const preprocessed = new Float32Array(channels * modelHeight * modelWidth)
     
@@ -165,7 +179,6 @@ export class YOLOv9Detector {
     console.log('Output tensor dims:', dims)
     
     const boxes: BoundingBox[] = []
-    const modelWidth = this.config.inputShape[3]
     const modelHeight = this.config.inputShape[2]
     
     // 640x480 -> 640x640への変換で使用したパディング値
@@ -275,7 +288,5 @@ export class YOLOv9Detector {
         // セッションが既に解放されている場合はエラーを無視
       }
     }
-    
-    this.isWebGPU = false
   }
 }
