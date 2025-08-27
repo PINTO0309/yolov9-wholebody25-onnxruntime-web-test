@@ -66,7 +66,7 @@ function App() {
       const yoloConfig: ModelConfig = {
         modelPath: '/models/yolov9_s_wholebody25_0100_1x3x640x640.onnx',
         inputShape: [1, 3, 640, 640],
-        confidenceThreshold: 0.5,
+        confidenceThreshold: 0.3,
         iouThreshold: 0.45,
         executionProvider
       }
