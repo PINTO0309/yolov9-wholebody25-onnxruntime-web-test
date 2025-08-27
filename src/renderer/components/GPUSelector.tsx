@@ -5,9 +5,10 @@ interface GPUSelectorProps {
   label?: string;
   onSelectGPU?: (adapterIndex: number) => void;
   disabled?: boolean;
+  singleGpuMode?: boolean;
 }
 
-export default function GPUSelector({ label = "GPU:", onSelectGPU, disabled }: GPUSelectorProps) {
+export default function GPUSelector({ label = "GPU:", onSelectGPU, disabled, singleGpuMode }: GPUSelectorProps) {
   const [adapters, setAdapters] = useState<GPUAdapterDetails[]>([])
   const [selectedAdapterIndex, setSelectedAdapterIndex] = useState<number>(0)
   const [loading, setLoading] = useState(true)
@@ -48,12 +49,16 @@ export default function GPUSelector({ label = "GPU:", onSelectGPU, disabled }: G
 
   return (
     <div className="gpu-selector">
-      <label htmlFor={selectId}>{label}</label>
+      <label htmlFor={selectId}>
+        {label}
+        {singleGpuMode && <span className="single-gpu-indicator" title="Single GPU mode - selection disabled"> (Single GPU)</span>}
+      </label>
       <select 
         id={selectId} 
         value={selectedAdapterIndex} 
         onChange={handleSelectionChange}
         disabled={disabled}
+        title={singleGpuMode ? "GPU selection is disabled in single GPU environment" : ""}
       >
         {adapters.map((adapter, index) => (
           <option key={index} value={index}>

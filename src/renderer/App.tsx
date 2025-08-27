@@ -24,7 +24,7 @@ function App() {
   const [debugMode, setDebugMode] = useState(false)
   const [gpuCount, setGpuCount] = useState(0)
   const [yoloGpuIndex, setYoloGpuIndex] = useState<number>(0)
-  const [segmentationGpuIndex, setSegmentationGpuIndex] = useState<number>(1)
+  const [segmentationGpuIndex, setSegmentationGpuIndex] = useState<number>(0)
 
   const detectorRef = useRef<YOLOv9Detector | null>(null)
   const segmentationRef = useRef<PersonSegmentation | null>(null)
@@ -115,6 +115,11 @@ function App() {
         const count = await getGPUCount()
         setGpuCount(count)
         console.log(`Found ${count} GPU adapter(s)`)
+        
+        // マルチGPU環境では異なるGPUを初期設定
+        if (count > 1) {
+          setSegmentationGpuIndex(1)
+        }
       }
     })
 
@@ -258,17 +263,19 @@ function App() {
       </div>
 
       <div className="controls">
-        {webGPUSupported && executionProvider === 'webgpu' && gpuCount > 1 && (
+        {webGPUSupported && executionProvider === 'webgpu' && (
           <>
             <GPUSelector 
               label="YOLO GPU:"
               onSelectGPU={setYoloGpuIndex}
-              disabled={isModelLoading || isDetecting}
+              disabled={isModelLoading || isDetecting || gpuCount <= 1}
+              singleGpuMode={gpuCount <= 1}
             />
             <GPUSelector 
               label="Seg GPU:"
               onSelectGPU={setSegmentationGpuIndex}
-              disabled={isModelLoading || isDetecting}
+              disabled={isModelLoading || isDetecting || gpuCount <= 1}
+              singleGpuMode={gpuCount <= 1}
             />
           </>
         )}
