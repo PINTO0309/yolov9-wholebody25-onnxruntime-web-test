@@ -14,25 +14,89 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
   }
 
   const adapters: GPUAdapterDetails[] = [];
+  const seenDeviceIds = new Set<string>();
 
-  // GPUアダプターを取得（デフォルト設定のみ使用）
+  // 注意: 現在のWebGPU APIでは複数のGPUを直接列挙する方法がないため、
+  // powerPreferenceを使って異なるGPUにアクセスを試みます
+  // 将来的にはnavigator.gpu.getAdapters()のようなAPIが追加される可能性があります
+  
+  // デフォルトのアダプターを取得
   try {
     const adapter = await navigator.gpu.requestAdapter();
-
     if (adapter) {
       const info = await adapter.requestAdapterInfo();
-      adapters.push({
-        adapter,
-        info,
-        vendor: info.vendor || 'Unknown',
-        architecture: info.architecture || 'Unknown',
-        device: info.device || 'Unknown',
-        description: info.description || 'Unknown GPU'
-      });
+      const deviceId = `${info.vendor}-${info.device}-${info.architecture}`;
+      
+      if (!seenDeviceIds.has(deviceId)) {
+        seenDeviceIds.add(deviceId);
+        adapters.push({
+          adapter,
+          info,
+          vendor: info.vendor || 'Unknown',
+          architecture: info.architecture || 'Unknown',
+          device: info.device || 'Unknown',
+          description: info.description || 'Unknown GPU'
+        });
+      }
     }
   } catch (error) {
-    console.error('Failed to get adapter:', error);
+    console.error('Failed to get default adapter:', error);
   }
+
+  // 高性能GPUを明示的にリクエスト（異なるGPUが返される可能性）
+  try {
+    const adapter = await navigator.gpu.requestAdapter({
+      powerPreference: 'high-performance'
+    });
+    if (adapter) {
+      const info = await adapter.requestAdapterInfo();
+      const deviceId = `${info.vendor}-${info.device}-${info.architecture}`;
+      
+      if (!seenDeviceIds.has(deviceId)) {
+        seenDeviceIds.add(deviceId);
+        adapters.push({
+          adapter,
+          info,
+          vendor: info.vendor || 'Unknown',
+          architecture: info.architecture || 'Unknown',
+          device: info.device || 'Unknown',
+          description: info.description || 'Unknown GPU'
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Failed to get high-performance adapter:', error);
+  }
+
+  // 省電力GPUを明示的にリクエスト（統合GPUが返される可能性）
+  try {
+    const adapter = await navigator.gpu.requestAdapter({
+      powerPreference: 'low-power'
+    });
+    if (adapter) {
+      const info = await adapter.requestAdapterInfo();
+      const deviceId = `${info.vendor}-${info.device}-${info.architecture}`;
+      
+      if (!seenDeviceIds.has(deviceId)) {
+        seenDeviceIds.add(deviceId);
+        adapters.push({
+          adapter,
+          info,
+          vendor: info.vendor || 'Unknown',
+          architecture: info.architecture || 'Unknown',
+          device: info.device || 'Unknown',
+          description: info.description || 'Unknown GPU'
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Failed to get low-power adapter:', error);
+  }
+
+  console.log(`Found ${adapters.length} unique GPU adapter(s)`);
+  adapters.forEach((adapter, index) => {
+    console.log(`  ${index}: ${adapter.description} (${adapter.vendor})`);
+  });
 
   return adapters;
 }
