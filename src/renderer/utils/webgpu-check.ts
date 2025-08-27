@@ -13,6 +13,7 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
     return [];
   }
 
+  console.log('=== GPU Detection Debug ===');
   const adapters: GPUAdapterDetails[] = [];
   const seenDeviceIds = new Set<string>();
 
@@ -21,10 +22,12 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
   // 将来的にはnavigator.gpu.getAdapters()のようなAPIが追加される可能性があります
 
   // デフォルトのアダプターを取得
+  console.log('Requesting default adapter...');
   try {
     const adapter = await navigator.gpu.requestAdapter();
     if (adapter) {
       const info = await adapter.requestAdapterInfo();
+      console.log('Default adapter info:', info);
       const deviceId = `${info.vendor}-${info.device}-${info.architecture}`;
 
       if (!seenDeviceIds.has(deviceId)) {
@@ -37,6 +40,7 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
           device: info.device || 'Unknown',
           description: info.description || 'Unknown GPU'
         });
+        console.log(`Added default GPU: ${info.description} (${deviceId})`);
       }
     }
   } catch (error) {
@@ -44,12 +48,14 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
   }
 
   // 高性能GPUを明示的にリクエスト（異なるGPUが返される可能性）
+  console.log('Requesting high-performance adapter...');
   try {
     const adapter = await navigator.gpu.requestAdapter({
       powerPreference: 'high-performance'
     });
     if (adapter) {
       const info = await adapter.requestAdapterInfo();
+      console.log('High-performance adapter info:', info);
       const deviceId = `${info.vendor}-${info.device}-${info.architecture}`;
 
       if (!seenDeviceIds.has(deviceId)) {
@@ -62,6 +68,9 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
           device: info.device || 'Unknown',
           description: info.description || 'Unknown GPU'
         });
+        console.log(`Added high-performance GPU: ${info.description} (${deviceId})`);
+      } else {
+        console.log(`High-performance GPU already added: ${deviceId}`);
       }
     }
   } catch (error) {
@@ -69,12 +78,14 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
   }
 
   // 省電力GPUを明示的にリクエスト（統合GPUが返される可能性）
+  console.log('Requesting low-power adapter...');
   try {
     const adapter = await navigator.gpu.requestAdapter({
       powerPreference: 'low-power'
     });
     if (adapter) {
       const info = await adapter.requestAdapterInfo();
+      console.log('Low-power adapter info:', info);
       const deviceId = `${info.vendor}-${info.device}-${info.architecture}`;
 
       if (!seenDeviceIds.has(deviceId)) {
@@ -87,15 +98,19 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
           device: info.device || 'Unknown',
           description: info.description || 'Unknown GPU'
         });
+        console.log(`Added low-power GPU: ${info.description} (${deviceId})`);
+      } else {
+        console.log(`Low-power GPU already added: ${deviceId}`);
       }
     }
   } catch (error) {
     console.error('Failed to get low-power adapter:', error);
   }
 
-  console.log(`Found ${adapters.length} unique GPU adapter(s)`);
+  console.log(`=== GPU Detection Summary ===`);
+  console.log(`Total unique GPUs found: ${adapters.length}`);
   adapters.forEach((adapter, index) => {
-    console.log(`  ${index}: ${adapter.description} (${adapter.vendor})`);
+    console.log(`  GPU ${index}: ${adapter.description} (${adapter.vendor}/${adapter.device}/${adapter.architecture})`);
   });
 
   return adapters;

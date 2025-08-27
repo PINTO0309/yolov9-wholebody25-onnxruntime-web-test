@@ -114,11 +114,23 @@ function App() {
         // GPU数を取得
         const count = await getGPUCount()
         setGpuCount(count)
-        console.log(`Found ${count} GPU adapter(s)`)
+        console.log(`=== Multi-GPU Detection ===`)
+        console.log(`GPU count detected: ${count}`)
+        
+        // WebGPU API制限の警告
+        if (count === 1) {
+          console.warn('Only 1 GPU detected. This may be due to WebGPU API limitations.')
+          console.warn('For multi-GPU support in Chrome/Edge, try:')
+          console.warn('1. Enable chrome://flags/#enable-webgpu-developer-features')
+          console.warn('2. Launch with --enable-unsafe-webgpu flag')
+        }
         
         // マルチGPU環境では異なるGPUを初期設定
         if (count > 1) {
+          console.log('Multiple GPUs detected, enabling GPU selection')
           setSegmentationGpuIndex(1)
+        } else {
+          console.log('Single GPU mode, GPU selection will be disabled')
         }
       }
     })
