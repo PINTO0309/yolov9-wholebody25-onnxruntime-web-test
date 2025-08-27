@@ -5,7 +5,8 @@ import { BoundingBox, ExecutionProvider, ModelConfig } from './utils/types'
 import { useWebcam } from './hooks/useWebcam'
 import { useScreenRecorder } from './hooks/useScreenRecorder'
 import DetectionCanvas from './components/DetectionCanvas'
-import { checkWebGPUSupport } from './utils/webgpu-check'
+import GPUSelector from './components/GPUSelector'
+import { checkWebGPUSupport, getGPUCount } from './utils/webgpu-check'
 import './App.css'
 
 function App() {
@@ -21,6 +22,9 @@ function App() {
   const [initializationStatus, setInitializationStatus] = useState<string>('')
   const [webGPUSupported, setWebGPUSupported] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
+  const [gpuCount, setGpuCount] = useState(0)
+  const [yoloGpuIndex, setYoloGpuIndex] = useState<number>(0)
+  const [segmentationGpuIndex, setSegmentationGpuIndex] = useState<number>(0)
 
   const detectorRef = useRef<YOLOv9Detector | null>(null)
   const segmentationRef = useRef<PersonSegmentation | null>(null)
@@ -77,8 +81,8 @@ function App() {
       const detector = new YOLOv9Detector(yoloConfig, handleStatusUpdate)
       const segmentation = new PersonSegmentation(segmentationConfig, handleStatusUpdate)
 
-      await detector.initialize()
-      await segmentation.initialize()
+      await detector.initialize(yoloGpuIndex)
+      await segmentation.initialize(segmentationGpuIndex)
 
       detectorRef.current = detector
       segmentationRef.current = segmentation
@@ -97,15 +101,37 @@ function App() {
     } finally {
       setIsModelLoading(false)
     }
-  }, [executionProvider, handleStatusUpdate])
+  }, [executionProvider, handleStatusUpdate, yoloGpuIndex, segmentationGpuIndex])
 
   useEffect(() => {
     // WebGPUサポートチェック
-    checkWebGPUSupport().then(supported => {
+    checkWebGPUSupport().then(async supported => {
       setWebGPUSupported(supported)
       if (!supported && executionProvider === 'webgpu') {
         console.warn('WebGPU not supported, falling back to WebGL')
         setExecutionProvider('webgl')
+      } else if (supported) {
+        // GPU数を取得
+        const count = await getGPUCount()
+        setGpuCount(count)
+        console.log(`=== Multi-GPU Detection ===`)
+        console.log(`GPU count detected: ${count}`)
+        
+        // WebGPU API制限の警告
+        if (count === 1) {
+          console.warn('Only 1 GPU detected. This may be due to WebGPU API limitations.')
+          console.warn('For multi-GPU support in Chrome/Edge, try:')
+          console.warn('1. Enable chrome://flags/#enable-webgpu-developer-features')
+          console.warn('2. Launch with --enable-unsafe-webgpu flag')
+        }
+        
+        // マルチGPU環境では異なるGPUを初期設定
+        if (count > 1) {
+          console.log('Multiple GPUs detected, enabling GPU selection')
+          setSegmentationGpuIndex(1)
+        } else {
+          console.log('Single GPU mode, GPU selection will be disabled')
+        }
       }
     })
 
@@ -156,6 +182,9 @@ function App() {
     setIsDetecting(true)
 
     const detect = async () => {
+      // 停止フラグをチェック
+      if (!animationIdRef.current) return
+      
       if (!videoRef.current || !detectorRef.current || !segmentationRef.current || !offscreenCanvasRef.current) return
 
       const video = videoRef.current
@@ -189,13 +218,19 @@ function App() {
         console.error('Detection/Segmentation error:', err)
       }
 
-      animationIdRef.current = requestAnimationFrame(detect)
+      // 停止フラグを再度チェック
+      if (animationIdRef.current) {
+        animationIdRef.current = requestAnimationFrame(detect)
+      }
     }
 
+    // アニメーションIDを初期化して開始
+    animationIdRef.current = 1 // nullでない値を設定
     detect()
   }, [isModelLoaded, videoRef])
 
   const stopDetection = useCallback(() => {
+    console.log('Stopping detection...')
     setIsDetecting(false)
     if (animationIdRef.current) {
       cancelAnimationFrame(animationIdRef.current)
@@ -203,6 +238,7 @@ function App() {
     }
     setDetections([])
     setSegmentationMask(null)
+    console.log('Detection stopped')
   }, [])
 
   const toggleProvider = useCallback(async () => {
@@ -247,6 +283,23 @@ function App() {
           />
         )}
       </div>
+
+      {webGPUSupported && executionProvider === 'webgpu' && (
+        <div className="gpu-controls">
+          <GPUSelector 
+            label="YOLO GPU:"
+            onSelectGPU={setYoloGpuIndex}
+            disabled={isModelLoading || isDetecting || gpuCount <= 1}
+            singleGpuMode={gpuCount <= 1}
+          />
+          <GPUSelector 
+            label="Seg GPU:"
+            onSelectGPU={setSegmentationGpuIndex}
+            disabled={isModelLoading || isDetecting || gpuCount <= 1}
+            singleGpuMode={gpuCount <= 1}
+          />
+        </div>
+      )}
 
       <div className="controls">
         <button

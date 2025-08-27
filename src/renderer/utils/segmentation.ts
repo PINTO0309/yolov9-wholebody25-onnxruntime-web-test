@@ -1,4 +1,5 @@
 import * as ort from 'onnxruntime-web'
+import { selectGPUAdapterByIndex, getAllAvailableAdapters } from './webgpu-check'
 
 export interface SegmentationConfig {
   modelPath: string
@@ -10,7 +11,6 @@ export interface SegmentationConfig {
 export class PersonSegmentation {
   private session: ort.InferenceSession | null = null
   private config: SegmentationConfig
-  private initializationStatus: string = ''
   private onStatusUpdate?: (status: string) => void
 
   constructor(config: SegmentationConfig, onStatusUpdate?: (status: string) => void) {
@@ -19,16 +19,32 @@ export class PersonSegmentation {
   }
 
   private updateStatus(status: string) {
-    this.initializationStatus = status
     if (this.onStatusUpdate) {
       this.onStatusUpdate(status)
     }
     console.log('Segmentation Status:', status)
   }
 
-  async initialize(): Promise<void> {
+  async initialize(gpuIndex?: number): Promise<void> {
     try {
       this.updateStatus('Initializing segmentation model...')
+
+      // WebGPU使用時はGPU選択を行う
+      if (this.config.executionProvider === 'webgpu') {
+        this.updateStatus('Selecting GPU adapter for segmentation...')
+        const availableAdapters = await getAllAvailableAdapters()
+        console.log('Available GPU adapters for segmentation:', availableAdapters.map(a => a.description))
+        
+        const selectedAdapter = await selectGPUAdapterByIndex(gpuIndex ?? 0)
+        if (selectedAdapter) {
+          const info = await selectedAdapter.requestAdapterInfo()
+          console.log('Selected GPU for segmentation:', info.description || 'Unknown GPU')
+          this.updateStatus(`Using GPU for segmentation: ${info.description || 'Unknown GPU'}`)
+        } else {
+          console.warn('No suitable GPU adapter found for segmentation, falling back to WebGL')
+          this.config.executionProvider = 'webgl'
+        }
+      }
 
       const options: ort.InferenceSession.SessionOptions = {
         executionProviders: this.config.executionProvider === 'webgpu'
@@ -55,7 +71,7 @@ export class PersonSegmentation {
   }
 
   private preprocessImage(imageData: ImageData): Float32Array {
-    const { width, height, data } = imageData
+    const { width, height } = imageData
     const [, channels, modelHeight, modelWidth] = this.config.inputShape
     const preprocessed = new Float32Array(channels * modelHeight * modelWidth)
 

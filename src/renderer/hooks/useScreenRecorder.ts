@@ -6,7 +6,6 @@ export const useScreenRecorder = () => {
   const [isRecording, setIsRecording] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showSourceSelector, setShowSourceSelector] = useState(false)
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
 
   const startRecordingWithSource = useCallback(async (sourceId?: string) => {
     try {
