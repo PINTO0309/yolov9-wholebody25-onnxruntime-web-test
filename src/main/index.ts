@@ -22,7 +22,7 @@ app.commandLine.appendSwitch("use-angle", "gl");
 // WebGPUアダプターの設定（マルチGPU対応）
 app.commandLine.appendSwitch("use-webgpu-adapter", "default");
 app.commandLine.appendSwitch("enable-webgpu-developer-features", "true");
-app.commandLine.appendSwitch("enable-features", "WebGPUMultiAdapter");  // 実験的: 複数アダプター
+// app.commandLine.appendSwitch("enable-features", "WebGPUMultiAdapter");  // 実験的: 複数アダプター
 
 // SharedImageエラーを回避するための設定
 app.commandLine.appendSwitch("disable-features", "UseSkiaRenderer,UseChromeOSDirectVideoDecoder");
