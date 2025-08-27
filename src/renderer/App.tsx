@@ -182,6 +182,9 @@ function App() {
     setIsDetecting(true)
 
     const detect = async () => {
+      // 停止フラグをチェック
+      if (!animationIdRef.current) return
+      
       if (!videoRef.current || !detectorRef.current || !segmentationRef.current || !offscreenCanvasRef.current) return
 
       const video = videoRef.current
@@ -215,13 +218,19 @@ function App() {
         console.error('Detection/Segmentation error:', err)
       }
 
-      animationIdRef.current = requestAnimationFrame(detect)
+      // 停止フラグを再度チェック
+      if (animationIdRef.current) {
+        animationIdRef.current = requestAnimationFrame(detect)
+      }
     }
 
+    // アニメーションIDを初期化して開始
+    animationIdRef.current = 1 // nullでない値を設定
     detect()
   }, [isModelLoaded, videoRef])
 
   const stopDetection = useCallback(() => {
+    console.log('Stopping detection...')
     setIsDetecting(false)
     if (animationIdRef.current) {
       cancelAnimationFrame(animationIdRef.current)
@@ -229,6 +238,7 @@ function App() {
     }
     setDetections([])
     setSegmentationMask(null)
+    console.log('Detection stopped')
   }, [])
 
   const toggleProvider = useCallback(async () => {
@@ -274,24 +284,24 @@ function App() {
         )}
       </div>
 
-      <div className="controls">
-        {webGPUSupported && executionProvider === 'webgpu' && (
-          <>
-            <GPUSelector 
-              label="YOLO GPU:"
-              onSelectGPU={setYoloGpuIndex}
-              disabled={isModelLoading || isDetecting || gpuCount <= 1}
-              singleGpuMode={gpuCount <= 1}
-            />
-            <GPUSelector 
-              label="Seg GPU:"
-              onSelectGPU={setSegmentationGpuIndex}
-              disabled={isModelLoading || isDetecting || gpuCount <= 1}
-              singleGpuMode={gpuCount <= 1}
-            />
-          </>
-        )}
+      {webGPUSupported && executionProvider === 'webgpu' && (
+        <div className="gpu-controls">
+          <GPUSelector 
+            label="YOLO GPU:"
+            onSelectGPU={setYoloGpuIndex}
+            disabled={isModelLoading || isDetecting || gpuCount <= 1}
+            singleGpuMode={gpuCount <= 1}
+          />
+          <GPUSelector 
+            label="Seg GPU:"
+            onSelectGPU={setSegmentationGpuIndex}
+            disabled={isModelLoading || isDetecting || gpuCount <= 1}
+            singleGpuMode={gpuCount <= 1}
+          />
+        </div>
+      )}
 
+      <div className="controls">
         <button
           onClick={toggleProvider}
           disabled={isModelLoading || isDetecting || (!webGPUSupported && executionProvider === 'webgl')}
