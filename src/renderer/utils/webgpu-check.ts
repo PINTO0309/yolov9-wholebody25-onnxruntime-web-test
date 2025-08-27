@@ -19,14 +19,14 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
   // 注意: 現在のWebGPU APIでは複数のGPUを直接列挙する方法がないため、
   // powerPreferenceを使って異なるGPUにアクセスを試みます
   // 将来的にはnavigator.gpu.getAdapters()のようなAPIが追加される可能性があります
-  
+
   // デフォルトのアダプターを取得
   try {
     const adapter = await navigator.gpu.requestAdapter();
     if (adapter) {
       const info = await adapter.requestAdapterInfo();
       const deviceId = `${info.vendor}-${info.device}-${info.architecture}`;
-      
+
       if (!seenDeviceIds.has(deviceId)) {
         seenDeviceIds.add(deviceId);
         adapters.push({
@@ -51,7 +51,7 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
     if (adapter) {
       const info = await adapter.requestAdapterInfo();
       const deviceId = `${info.vendor}-${info.device}-${info.architecture}`;
-      
+
       if (!seenDeviceIds.has(deviceId)) {
         seenDeviceIds.add(deviceId);
         adapters.push({
@@ -76,7 +76,7 @@ export async function getAllAvailableAdapters(): Promise<GPUAdapterDetails[]> {
     if (adapter) {
       const info = await adapter.requestAdapterInfo();
       const deviceId = `${info.vendor}-${info.device}-${info.architecture}`;
-      
+
       if (!seenDeviceIds.has(deviceId)) {
         seenDeviceIds.add(deviceId);
         adapters.push({
