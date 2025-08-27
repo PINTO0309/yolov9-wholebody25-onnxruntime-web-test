@@ -116,7 +116,7 @@ function App() {
         setGpuCount(count)
         console.log(`=== Multi-GPU Detection ===`)
         console.log(`GPU count detected: ${count}`)
-        
+
         // WebGPU API制限の警告
         if (count === 1) {
           console.warn('Only 1 GPU detected. This may be due to WebGPU API limitations.')
@@ -124,7 +124,7 @@ function App() {
           console.warn('1. Enable chrome://flags/#enable-webgpu-developer-features')
           console.warn('2. Launch with --enable-unsafe-webgpu flag')
         }
-        
+
         // マルチGPU環境では異なるGPUを初期設定
         if (count > 1) {
           console.log('Multiple GPUs detected, enabling GPU selection')
@@ -184,7 +184,7 @@ function App() {
     const detect = async () => {
       // 停止フラグをチェック
       if (!animationIdRef.current) return
-      
+
       if (!videoRef.current || !detectorRef.current || !segmentationRef.current || !offscreenCanvasRef.current) return
 
       const video = videoRef.current
@@ -286,13 +286,13 @@ function App() {
 
       {webGPUSupported && executionProvider === 'webgpu' && (
         <div className="gpu-controls">
-          <GPUSelector 
+          <GPUSelector
             label="YOLO GPU:"
             onSelectGPU={setYoloGpuIndex}
             disabled={isModelLoading || isDetecting || gpuCount <= 1}
             singleGpuMode={gpuCount <= 1}
           />
-          <GPUSelector 
+          <GPUSelector
             label="Seg GPU:"
             onSelectGPU={setSegmentationGpuIndex}
             disabled={isModelLoading || isDetecting || gpuCount <= 1}
