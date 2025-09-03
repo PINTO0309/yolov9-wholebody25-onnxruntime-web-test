@@ -25,6 +25,8 @@ function App() {
   const [gpuCount, setGpuCount] = useState(0)
   const [yoloGpuIndex, setYoloGpuIndex] = useState<number>(0)
   const [segmentationGpuIndex, setSegmentationGpuIndex] = useState<number>(0)
+  const [actualYoloProvider, setActualYoloProvider] = useState<string>('')
+  const [actualSegProvider, setActualSegProvider] = useState<string>('')
 
   const detectorRef = useRef<YOLOv9Detector | null>(null)
   const segmentationRef = useRef<PersonSegmentation | null>(null)
@@ -63,8 +65,13 @@ function App() {
         }
       }
 
+      // Select model files based on execution provider
+      // Use non-quantized models for WebGPU/WebGL for better performance
+      const useQuantized = executionProvider !== 'webgpu' && executionProvider !== 'webgl'
+      const modelSuffix = useQuantized ? '_quant' : ''
+
       const yoloConfig: ModelConfig = {
-        modelPath: '/models/yolov9_s_wholebody25_0100_1x3x640x640.onnx',
+        modelPath: `/models/yolov9_s_wholebody25_0100_1x3x640x640${modelSuffix}.onnx`,
         inputShape: [1, 3, 640, 640],
         confidenceThreshold: 0.3,
         iouThreshold: 0.45,
@@ -72,11 +79,13 @@ function App() {
       }
 
       const segmentationConfig: SegmentationConfig = {
-        modelPath: '/models/peopleseg_b0_0.8741_1x3x640x640.onnx',
+        modelPath: `/models/peopleseg_b0_0.8741_1x3x640x640${modelSuffix}.onnx`,
         inputShape: [1, 3, 640, 640],
         threshold: 0.5,
         executionProvider
       }
+
+      console.log(`Using ${useQuantized ? 'quantized' : 'non-quantized'} models for ${executionProvider}`)
 
       const detector = new YOLOv9Detector(yoloConfig, handleStatusUpdate)
       const segmentation = new PersonSegmentation(segmentationConfig, handleStatusUpdate)
@@ -86,6 +95,11 @@ function App() {
 
       detectorRef.current = detector
       segmentationRef.current = segmentation
+
+      // Get actual providers that were successfully initialized
+      setActualYoloProvider(detector.getActiveProvider())
+      setActualSegProvider(segmentation.getActiveProvider())
+
       setIsModelLoaded(true)
 
       if (!offscreenCanvasRef.current) {
@@ -98,6 +112,8 @@ function App() {
       setIsModelLoaded(false)
       detectorRef.current = null
       segmentationRef.current = null
+      setActualYoloProvider('')
+      setActualSegProvider('')
     } finally {
       setIsModelLoading(false)
     }
@@ -250,6 +266,10 @@ function App() {
     // モデルをアンロード
     setIsModelLoaded(false)
 
+    // Clear actual provider states
+    setActualYoloProvider('')
+    setActualSegProvider('')
+
     // プロバイダーを切り替え（これによりuseEffectがトリガーされ、新しいモデルが初期化される）
     setExecutionProvider(newProvider)
   }, [executionProvider, stopDetection])
@@ -339,8 +359,16 @@ function App() {
 
       <div className="info-panel">
         <div className="info-item">
-          <span className="info-label">Runtime:</span>
-          <span className="info-value">{executionProvider.toUpperCase()}</span>
+          <span className="info-label">YOLO Runtime:</span>
+          <span className="info-value">
+            {actualYoloProvider ? actualYoloProvider.toUpperCase() : executionProvider.toUpperCase()}
+          </span>
+        </div>
+        <div className="info-item">
+          <span className="info-label">Seg Runtime:</span>
+          <span className="info-value">
+            {actualSegProvider ? actualSegProvider.toUpperCase() : executionProvider.toUpperCase()}
+          </span>
         </div>
         <div className="info-item">
           <span className="info-label">YOLO:</span>

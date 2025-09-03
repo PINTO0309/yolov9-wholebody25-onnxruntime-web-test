@@ -18,7 +18,7 @@ export interface BoundingBox {
   label: string
 }
 
-export type ExecutionProvider = 'webgl' | 'webgpu'
+export type ExecutionProvider = 'webgl' | 'webgpu' | 'webnn' | 'wasm'
 
 export interface ModelConfig {
   modelPath: string

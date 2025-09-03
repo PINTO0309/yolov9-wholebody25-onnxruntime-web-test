@@ -7,13 +7,18 @@ app.commandLine.appendSwitch('enable-unsafe-webgpu');
 app.commandLine.appendSwitch("enable-webgpu-developer-features");
 
 // Linux環境でWebGPUを有効化するために必要なVulkanサポート
-app.commandLine.appendSwitch("enable-features", "Vulkan,WebGPU,WebGPUService");
+// app.commandLine.appendSwitch("enable-features", "Vulkan,WebGPU,WebGPUService,WebMachineLearningNeuralNetwork,EnablesExperimentalWebNNAPIFeatures");
+// app.commandLine.appendSwitch("enable-features", "Vulkan,WebGPU,WebGPUService,WebNN,UseDmlForWebNN");
+// app.commandLine.appendSwitch("enable-features", "WebNN,UseDmlForWebNN");
+// app.commandLine.appendSwitch("enable-features", "WebMachineLearningNeuralNetwork,EnablesExperimentalWebNNAPIFeatures");
+app.commandLine.appendSwitch("enable-features", "WebNN,UseDmlForWebNN");
 
 // GPU設定の最適化
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 app.commandLine.appendSwitch("enable-gpu-rasterization");
 app.commandLine.appendSwitch("enable-zero-copy");
 app.commandLine.appendSwitch("disable-gpu-sandbox");
+app.commandLine.appendSwitch('disable-webnn-for-npu', '0');
 
 // ANGLEバックエンドを使用（chrome://gpu/と同じ設定）
 app.commandLine.appendSwitch("use-gl", "angle");

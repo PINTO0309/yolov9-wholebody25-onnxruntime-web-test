@@ -5,7 +5,7 @@ export interface SegmentationConfig {
   modelPath: string
   inputShape: number[]
   threshold: number
-  executionProvider: 'webgl' | 'webgpu' | 'wasm'
+  executionProvider: 'webgl' | 'webgpu' | 'webnn' | 'wasm'
 }
 
 export class PersonSegmentation {
@@ -26,47 +26,90 @@ export class PersonSegmentation {
   }
 
   async initialize(gpuIndex?: number): Promise<void> {
-    try {
-      this.updateStatus('Initializing segmentation model...')
+    this.updateStatus('Initializing segmentation model...')
 
-      // WebGPU使用時はGPU選択を行う
-      if (this.config.executionProvider === 'webgpu') {
-        this.updateStatus('Selecting GPU adapter for segmentation...')
-        const availableAdapters = await getAllAvailableAdapters()
-        console.log('Available GPU adapters for segmentation:', availableAdapters.map(a => a.description))
-        
-        const selectedAdapter = await selectGPUAdapterByIndex(gpuIndex ?? 0)
-        if (selectedAdapter) {
-          const info = await selectedAdapter.requestAdapterInfo()
-          console.log('Selected GPU for segmentation:', info.description || 'Unknown GPU')
-          this.updateStatus(`Using GPU for segmentation: ${info.description || 'Unknown GPU'}`)
-        } else {
-          console.warn('No suitable GPU adapter found for segmentation, falling back to WebGL')
-          this.config.executionProvider = 'webgl'
+    // Try providers in order: WebNN → WebGPU → WebGL
+    const providers = [
+      { name: 'webnn', providers: ['webnn', 'wasm'] },
+      // { name: 'webgpu', providers: ['webgpu', 'wasm'] },
+      // { name: 'webgl', providers: ['webgl', 'wasm'] }
+    ]
+
+    let sessionCreated = false
+    let lastError: any = null
+
+    for (const provider of providers) {
+      try {
+        this.updateStatus(`Trying ${provider.name.toUpperCase()} provider for segmentation...`)
+        console.log(`Attempting to initialize segmentation with ${provider.name}...`)
+
+        // WebGPU使用時はGPU選択を行う
+        if (provider.name === 'webgpu') {
+          this.updateStatus('Selecting GPU adapter for segmentation...')
+          const availableAdapters = await getAllAvailableAdapters()
+          console.log('Available GPU adapters for segmentation:', availableAdapters.map(a => a.description))
+
+          const selectedAdapter = await selectGPUAdapterByIndex(gpuIndex ?? 0)
+          if (selectedAdapter) {
+            const info = await selectedAdapter.requestAdapterInfo()
+            console.log('Selected GPU for segmentation:', info.description || 'Unknown GPU')
+            this.updateStatus(`Using GPU for segmentation: ${info.description || 'Unknown GPU'}`)
+          } else {
+            console.warn('No suitable GPU adapter found for segmentation')
+            throw new Error('No suitable GPU adapter found')
+          }
+        }
+
+        const options: ort.InferenceSession.SessionOptions = {
+          executionProviders: provider.providers,
+          graphOptimizationLevel: 'all'
+        }
+
+        this.updateStatus(`Loading segmentation model with ${provider.name}...`)
+
+        if (provider.name === 'webgpu' || provider.name === 'webgl') {
+          this.updateStatus('Compiling shaders for segmentation...')
+        }
+
+        this.session = await ort.InferenceSession.create(this.config.modelPath, options)
+
+        // Update config to reflect the successfully used provider
+        this.config.executionProvider = provider.name as 'webgl' | 'webgpu' | 'webnn' | 'wasm'
+
+        this.updateStatus(`Segmentation model loaded successfully with ${provider.name.toUpperCase()}`)
+        console.log(`Successfully initialized segmentation with ${provider.name}`)
+        console.log('Segmentation Input names:', this.session.inputNames)
+        console.log('Segmentation Output names:', this.session.outputNames)
+        console.log('Segmentation Execution Provider:', provider.name)
+
+        sessionCreated = true
+
+        setTimeout(() => {
+          this.updateStatus('')
+        }, 2000)
+
+        break // Success, exit the loop
+
+      } catch (error) {
+        console.warn(`Failed to initialize segmentation with ${provider.name}:`, error)
+        lastError = error
+
+        // Clean up failed session if any
+        if (this.session) {
+          try {
+            await this.session.release()
+          } catch (e) {
+            console.warn('Error releasing failed segmentation session:', e)
+          }
+          this.session = null
         }
       }
+    }
 
-      const options: ort.InferenceSession.SessionOptions = {
-        executionProviders: this.config.executionProvider === 'webgpu'
-          ? ['webgpu', 'wasm']
-          : ['webgl', 'wasm'],
-        graphOptimizationLevel: 'all'
-      }
-
-      this.updateStatus('Loading segmentation model...')
-      this.session = await ort.InferenceSession.create(this.config.modelPath, options)
-
-      this.updateStatus('Segmentation model loaded successfully')
-      console.log('Segmentation Input names:', this.session.inputNames)
-      console.log('Segmentation Output names:', this.session.outputNames)
-
-      setTimeout(() => {
-        this.updateStatus('')
-      }, 2000)
-    } catch (error) {
-      this.updateStatus('Failed to initialize segmentation model')
-      console.error('Failed to initialize segmentation model:', error)
-      throw error
+    if (!sessionCreated) {
+      this.updateStatus('Failed to initialize segmentation model with any provider')
+      console.error('Failed to initialize segmentation model with any provider. Last error:', lastError)
+      throw lastError || new Error('Failed to initialize segmentation model with any provider')
     }
   }
 
@@ -117,9 +160,27 @@ export class PersonSegmentation {
     const input = new ort.Tensor('float32', preprocessed, this.config.inputShape)
 
     const startTime = performance.now()
-    const outputs = await this.session.run({ input: input })
+
+    let outputs: ort.OnnxValueMapType
+
+    if (this.config.executionProvider === 'webgpu' || this.config.executionProvider === 'webnn') {
+      // WebGPU/WebNN最適化オプション
+      try {
+        const runOptions: ort.InferenceSession.RunOptions = {
+          logSeverityLevel: 3,
+          logVerbosityLevel: 0
+        }
+        outputs = await this.session.run({ input: input }, runOptions)
+      } catch (error) {
+        console.warn(`${this.config.executionProvider.toUpperCase()} execution failed, falling back to normal mode:`, error)
+        outputs = await this.session.run({ input: input })
+      }
+    } else {
+      outputs = await this.session.run({ input: input })
+    }
+
     const inferenceTime = performance.now() - startTime
-    console.log(`Segmentation inference time: ${inferenceTime.toFixed(2)}ms`)
+    console.log(`Segmentation inference time: ${inferenceTime.toFixed(2)}ms (Provider: ${this.config.executionProvider})`)
 
     const output = outputs[this.session.outputNames[0]] as ort.Tensor
     const outputData = output.data as Float32Array
@@ -146,6 +207,10 @@ export class PersonSegmentation {
     }
 
     return croppedMask
+  }
+
+  getActiveProvider(): string {
+    return this.config.executionProvider
   }
 
   async dispose(): Promise<void> {
